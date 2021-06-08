@@ -114,8 +114,9 @@ function App() {
 
     const keyErrors: { [key: number]: number | null } = {};
     const currKey = harmonics[pianoKey];
+    if (!currKey) return;
     for (let key = 0; key < 88; key++) {
-      if (notes.indexOf(Math.abs(harmonics[key].key - currKey.key)) === -1) continue;
+      if (notes.indexOf(Math.abs(harmonics?.[key]?.key || 0 - currKey.key)) === -1) continue;
       const err = compareKeys(currKey, harmonics[key]);
       if (err !== null) {
         keyErrors[key] = err;
