@@ -16,17 +16,16 @@
     "typescript": "^4.1.2",
     "web-vitals": "^1.0.1"
   },
+  "devDependencies": {
+    "eslint-config-react-yas": "^1.1.1"
+  },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "lint": "eslint ./ --ext .ts,.tsx -c ./.eslintrc.json",
+    "lint:fix": "eslint ./ --ext .ts,.tsx --fix -c ./.eslintrc.json",
+    "build": "REACT_APP_ENVIRONMENT=prod react-scripts build && rm -rf docs && mv build docs",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
   },
   "browserslist": {
     "production": [

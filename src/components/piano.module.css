@@ -1,0 +1,37 @@
+canvas {
+  border: 1px dashed gray;
+}
+
+[data-ref="note"] {
+  height: 30px;
+  font-size: 20px;
+}
+
+rect {
+  fill: transparent;
+  stroke: #555;
+  stroke-width: 1px;
+}
+
+text {
+  stroke: none;
+  fill: #ccc;
+  font-size: 12px;
+}
+
+.key {
+  transition: fill 150ms;
+}
+
+.ivory {
+  fill: snow;
+}
+
+.ebony {
+  fill: black;
+  z-index: 100;
+}
+
+.lit {
+  fill: #2196f3;
+}
