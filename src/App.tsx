@@ -49,7 +49,7 @@ const defaultSettings = {
   mode: 'recording' as 'tuning' | 'recording',
   noteSounds: {
     harmonics: 'tuned' as 'recorded' | 'tuned',
-    notes: [] as number[],
+    notes: [0] as number[],
   },
   tuning: {
     curve: 'entropy' as 'none' | 'copy' | '7,12' | 'entropy',
@@ -71,13 +71,20 @@ function App() {
   const pianoKeyRef = useRef(0);
   const [pianoKey, _setPianoKey] = useState(0); // currently focused key
   const setPianoKey = (val: number) => {
-    const harmonics = settingsRef.current.noteSounds.harmonics === 'recorded' ? recordedHarmonics : tunedHarmonics;
-    const notes = settingsRef.current.noteSounds.notes;
+    let harmonics = settingsRef.current.noteSounds.harmonics === 'recorded' ? recordedHarmonics : tunedHarmonics;
+    harmonics = { ...harmonics } || {};
+    [0, 4, 7, 12, 24].forEach(i => {
+      const note = val + i;
+      if (!harmonics[note] && KEYS[note]) {
+        harmonics[note] = { harmonics: generateHarmonics(KEYS[note].hz, Math.ceil(88 - note) / 10) } as any;
+      }
+    });
+    const notes = settingsRef.current.noteSounds.notes || [];
     if (notes.indexOf(0) !== -1) playNote(harmonics?.[val]?.harmonics);
-    if (notes.indexOf(notes[4]) !== -1 && val + 4 < 88) playNote(harmonics?.[val + 4]?.harmonics); // third
-    if (notes.indexOf(notes[7]) !== -1 && val + 7 < 88) playNote(harmonics?.[val + 7]?.harmonics); // fifth
-    if (notes.indexOf(notes[12]) !== -1 && val + 12 < 88) playNote(harmonics?.[val + 12]?.harmonics); // octave
-    if (notes.indexOf(notes[24]) !== -1 && val + 24 < 88) playNote(harmonics?.[val + 24]?.harmonics); // double  octave
+    if (notes.indexOf(4) !== -1 && val + 4 < 88) playNote(harmonics?.[val + 4]?.harmonics); // third
+    if (notes.indexOf(7) !== -1 && val + 7 < 88) playNote(harmonics?.[val + 7]?.harmonics); // fifth
+    if (notes.indexOf(12) !== -1 && val + 12 < 88) playNote(harmonics?.[val + 12]?.harmonics); // octave
+    if (notes.indexOf(24) !== -1 && val + 24 < 88) playNote(harmonics?.[val + 24]?.harmonics); // double  octave
     _setPianoKey(val);
     pianoKeyRef.current = val;
   };
@@ -116,7 +123,7 @@ function App() {
     const currKey = harmonics[pianoKey];
     if (!currKey) return;
     for (let key = 0; key < 88; key++) {
-      if (notes.indexOf(Math.abs(harmonics?.[key]?.key || 0 - currKey.key)) === -1) continue;
+      if (notes.indexOf(Math.abs((harmonics?.[key]?.key || 0) - currKey.key)) === -1) continue;
       const err = compareKeys(currKey, harmonics[key]);
       if (err !== null) {
         keyErrors[key] = err;
@@ -129,7 +136,7 @@ function App() {
   })();
 
   const chartWidth = Math.min(window.innerWidth - 2, 1024);
-  const chartHeight = Math.min((chartWidth / 1024) * 300, 150);
+  const chartHeight = Math.max((chartWidth / 1024) * 300, 150);
 
   const fftChart = useCanvasChart({
     domain: {
@@ -161,6 +168,14 @@ function App() {
     width: chartWidth,
     height: chartHeight,
   });
+  // const twmChart = useCanvasChart({
+  //   domain: {
+  //     x1: 0,
+  //     x2: 88,
+  //     y1: 1,
+  //     y2: 0,
+  //   },
+  // });
   const autocorrelationChart = useCanvasChart({
     domain: {
       x1: 0,
@@ -209,6 +224,7 @@ function App() {
     harmonicsChart.clear();
     tunningCurveChart.clear();
     autocorrelationChart.clear();
+    // twmChart.clear();
 
     // draw the recorded harmonics for the current key
     (() => {
@@ -431,67 +447,70 @@ function App() {
 
     // store some data
     const predictNote = () => {
-      const closestNote = (fq: number) => {
-        let minDist = CENTS100;
-        let minKey: number | null = null;
-        KEYS.forEach(key => {
-          const keyDist = Math.abs(key.hz - fq) / key.hz;
-          if (keyDist < minDist) {
-            minDist = keyDist;
-            minKey = key.hz;
-          }
-        });
-        return minKey;
-      };
-      const distBetweenPeaks: number[] = [];
-      for (let i = 0; i < peaks.length; i++) {
-        distBetweenPeaks.push(peaks[i].center - (peaks[i - 1]?.center || 0));
-      }
-      const medianDistance = distBetweenPeaks[Math.floor(distBetweenPeaks.length / 2)];
-      const medianOutput = closestNote(medianDistance);
+      // const closestNote = (fq: number) => {
+      //   let minDist = CENTS100;
+      //   let minKey: number | null = null;
+      //   KEYS.forEach(key => {
+      //     const keyDist = Math.abs(key.hz - fq) / key.hz;
+      //     if (keyDist < minDist) {
+      //       minDist = keyDist;
+      //       minKey = key.hz;
+      //     }
+      //   });
+      //   return minKey;
+      // };
+      // const distBetweenPeaks: number[] = [];
+      // for (let i = 0; i < peaks.length; i++) {
+      //   distBetweenPeaks.push(peaks[i].center - (peaks[i - 1]?.center || 0));
+      // }
+      // const medianDistance = distBetweenPeaks[Math.floor(distBetweenPeaks.length / 2)];
+      // const medianOutput = closestNote(medianDistance);
 
-      const volume = mean(fqData);
-      const zLevel = mean(zScore);
-      const maxVolume = max(fqData);
+      // const volume = mean(fqData);
+      // const zLevel = mean(zScore);
+      // const maxVolume = max(fqData);
 
-      const { largestPeakFq } = findFundamentalFqUsingAutocorrelation(timeData, audio.sampleRate, 20, 5000);
-      const autoCorrOutput = closestNote(largestPeakFq);
+      // const { largestPeakFq } = findFundamentalFqUsingAutocorrelation(timeData, audio.sampleRate, 20, 5000);
+      // const autoCorrOutput = closestNote(largestPeakFq);
 
-      const maxPeak = peaks.find(p => p.amplitude === Math.max(...peaks.map(p => p.amplitude)))?.center || 0;
-      const maxPeakOutput = closestNote(maxPeak);
+      // const maxPeak = peaks.find(p => p.amplitude === Math.max(...peaks.map(p => p.amplitude)))?.center || 0;
+      // const maxPeakOutput = closestNote(maxPeak);
 
-      const peakCount = peaks.length;
+      // const peakCount = peaks.length;
 
-      let result: number | null = null;
+      // let result: number | null = null;
 
-      if (!result && medianOutput && medianOutput === autoCorrOutput && medianOutput === maxPeakOutput) {
-        // peaks count above 10 is not possible for fq above 600hz
-        if (peakCount < 10 || medianOutput < 600) result = medianOutput;
-      }
-      // autocorrelation is accurate up to about 2500hz
-      if (!result && autoCorrOutput && autoCorrOutput < 2500) {
-        if (peakCount < 10 || autoCorrOutput < 600) result = autoCorrOutput;
-      }
+      // if (!result && medianOutput && medianOutput === autoCorrOutput && medianOutput === maxPeakOutput) {
+      //   // peaks count above 10 is not possible for fq above 600hz
+      //   if (peakCount < 10 || medianOutput < 600) result = medianOutput;
+      // }
+      // // autocorrelation is accurate up to about 2500hz
+      // if (!result && autoCorrOutput && autoCorrOutput < 2500) {
+      //   if (peakCount < 10 || autoCorrOutput < 600) result = autoCorrOutput;
+      // }
 
-      // median distance between peaks gives a good approximation of what note we are hearing
-      // - after about 1500hz starts showing problems since there is a lower harmonic at play
-      if (!result && medianOutput && medianOutput < 1500) {
-        if (peakCount < 10 || medianOutput < 600) result = medianOutput;
-      }
-      // max peak is accurate for notes actually above 1000hz
-      //  - but has a few problems with notes below that having harmonics up to about 2000hz
-      if (!result && maxPeakOutput && maxPeakOutput > 2000) {
-        if (peakCount < 10) result = maxPeakOutput;
-      }
+      // // median distance between peaks gives a good approximation of what note we are hearing
+      // // - after about 1500hz starts showing problems since there is a lower harmonic at play
+      // if (!result && medianOutput && medianOutput < 1500) {
+      //   if (peakCount < 10 || medianOutput < 600) result = medianOutput;
+      // }
+      // // max peak is accurate for notes actually above 1000hz
+      // //  - but has a few problems with notes below that having harmonics up to about 2000hz
+      // if (!result && maxPeakOutput && maxPeakOutput > 2000) {
+      //   if (peakCount < 10) result = maxPeakOutput;
+      // }
 
-      (window as any).timelineData = (window as any).timelineData || [];
-      (window as any).timelineData.push(
-        `${volume},${maxVolume},${zLevel},${peakCount},${medianOutput},${autoCorrOutput},${maxPeakOutput},${result},${pianoKeyRef.current}`,
-      );
+      // (window as any).timelineData = (window as any).timelineData || [];
+      // (window as any).timelineData.push(
+      //   `${volume},${maxVolume},${zLevel},${peakCount},${medianOutput},${autoCorrOutput},${maxPeakOutput},${result},${pianoKeyRef.current}`,
+      // );
 
-      return result;
+      (window as any).timelinePeaksData = (window as any).timelinePeaksData || [];
+      (window as any).timelinePeaksData.push({ peaks, key: pianoKeyRef.current });
+
+      // return result;
     };
-    if (2 < 1) predictNote();
+    if (2 > 1) predictNote();
 
     // draw the autocorrelation
     (() => {
@@ -559,7 +578,7 @@ function App() {
             lowFq,
             highFq,
             stepSize,
-            targetHarmonics: generateHarmonics(targetFq, Math.round(maxFq / targetFq), 0.00055),
+            targetHarmonics: targetFq => generateHarmonics(targetFq, Math.round(maxFq / targetFq), 0.00055),
             peaks,
           });
           // get autocorrelation fq
@@ -620,9 +639,10 @@ function App() {
 
         // two way mismatch on current key +- 50 cents
 
-        const targetHarmonics = (tunedHarmonics[pianoKeyRef.current]?.harmonics ||
-          // recordedHarmonics[pianoKeyRef.current]?.harmonics ||
-          generateHarmonics(selectedKeyDef.hz, Math.round(maxFq / selectedKeyDef.hz), 0.00055)) as Peak[];
+        const targetHarmonics = (fq: number) =>
+          (tunedHarmonics[pianoKeyRef.current]?.harmonics ||
+            // recordedHarmonics[pianoKeyRef.current]?.harmonics ||
+            generateHarmonics(fq, Math.round(maxFq / fq), 0.00055)) as Peak[];
         const currentFq =
           tunedHarmonics[pianoKeyRef.current]?.harmonics?.[0]?.center ||
           // recordedHarmonics[pianoKeyRef.current]?.fundamentalFq ||
@@ -665,6 +685,13 @@ function App() {
         );
       }
     })();
+
+    // (() => {
+    //   const keys = findClosestKeyUsingTwoWayMismatch(peaks);
+    //   keys.forEach((key, idx) => {
+    //     twmChart.rect({ x1: idx, x2: idx + 1, y1: 0, y2: key });
+    //   });
+    // })();
   });
 
   return (
@@ -715,6 +742,7 @@ function App() {
           value={settingsRef.current.mode}
           onChange={e => {
             settingsRef.current.mode = e.target.value as any;
+            rerender();
           }}
         >
           <option value='recording'>Recording</option>
@@ -724,6 +752,7 @@ function App() {
           value={settingsRef.current.transition.auto}
           onChange={e => {
             settingsRef.current.transition.auto = e.target.value as any;
+            rerender();
           }}
         >
           <option value='none'>Auto Transition Disabled</option>
@@ -749,6 +778,7 @@ function App() {
           value={JSON.stringify(settingsRef.current.noteSounds.notes)}
           onChange={e => {
             settingsRef.current.noteSounds.notes = JSON.parse(e.target.value);
+            rerender();
           }}
         >
           <option value='[]'>No Sounds</option>
@@ -766,6 +796,7 @@ function App() {
           value={settingsRef.current.noteSounds.harmonics}
           onChange={e => {
             settingsRef.current.noteSounds.harmonics = e.target.value as any;
+            rerender();
           }}
         >
           <option value='recorded'>Recorded Notes</option>
@@ -778,6 +809,7 @@ function App() {
           value={settingsRef.current.tuning.curve}
           onChange={e => {
             settingsRef.current.tuning.curve = e.target.value as any;
+            rerender();
           }}
         >
           <option value='none'>No Curve</option>
@@ -816,6 +848,12 @@ function App() {
       <div className='chartContainer' style={{ height: chartVisible('twm') ? chartHeight + 2 : 0 }}>
         <CanvasChart {...predictionChart} />
       </div>
+      {/* <div className='chartTitle' onClick={() => toggleChart('twm')}>
+        Two Way Keys
+      </div>
+      <div className='chartContainer' style={{ height: chartVisible('twm') ? chartHeight + 2 : 0 }}>
+        <CanvasChart {...twmChart} />
+      </div> */}
       <div className='chartTitle' onClick={() => toggleChart('autocorr')}>
         Autocorrelation
       </div>

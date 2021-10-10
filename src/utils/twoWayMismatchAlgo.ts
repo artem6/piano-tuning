@@ -1,5 +1,7 @@
 import { CENTS50 } from './constants';
 import { findPeaks, Peak } from './findPeaks';
+import { KEYS } from './keys';
+import { generateHarmonics } from './predictHarmonics';
 
 export const findClosestPeak = (peaks: Peak[], target: number) => {
   let minDist: number | null = null;
@@ -38,7 +40,7 @@ export const twoWayMismatchAlgo = (peaks: Peak[], possibleHarmonics: Peak[][]) =
         const dist = Math.abs(closest.center - peak.center) / peak.center;
         let err = -0.5;
         if (dist < CENTS50) {
-          err = closest.amplitude / maxAmplitude / dist;
+          err = Math.min(closest.amplitude / maxAmplitude / dist, 100);
         }
         totalErr += err / harmonic.length;
       } else {
@@ -64,7 +66,7 @@ export const twoWayMismatchAlgo = (peaks: Peak[], possibleHarmonics: Peak[][]) =
         const dist = Math.abs(closest.center - peak.center) / closest.center;
         let err = -0.5 * (peak.amplitude / maxAmplitude); // if the measured peak is small, then don't deduct as much
         if (dist < CENTS50) {
-          err = peak.amplitude / maxAmplitude / dist;
+          err = Math.min(peak.amplitude / maxAmplitude / dist, 100);
         }
         errors2[idx] += err / peaks.length;
       } else {
@@ -105,13 +107,13 @@ export const findFundamentalFqUsingTwoWayMismatch = ({
   highFq: number;
   stepSize: number;
   peaks: Peak[];
-  targetHarmonics: Peak[];
+  targetHarmonics: (fq: number) => Peak[];
 }) => {
   try {
     const harmonics: Peak[][] = [];
     for (let i = lowFq; i < highFq; i += stepSize) {
-      const offset = i / (targetHarmonics[0]?.center || i);
-      harmonics.push(targetHarmonics.map(h => ({ ...h, center: (h?.center || 0) * offset })));
+      const offset = i / (targetHarmonics(i)[0]?.center || i);
+      harmonics.push(targetHarmonics(i).map(h => ({ ...h, center: (h?.center || 0) * offset })));
     }
 
     const prediction = twoWayMismatchAlgo(peaks, harmonics);
@@ -129,4 +131,12 @@ export const findFundamentalFqUsingTwoWayMismatch = ({
   } catch (e) {
     return { prediction: [], maxPeak: null, peakCenterFq: 0 };
   }
+};
+
+export const findClosestKeyUsingTwoWayMismatch = (peaks: Peak[]) => {
+  if (!peaks?.length) return [];
+  const maxFq = peaks[peaks.length - 1].center;
+  const harmonics = KEYS.map(key => generateHarmonics(key.hz, Math.round(maxFq / key.hz)));
+  const prediction = twoWayMismatchAlgo(peaks, harmonics);
+  return prediction;
 };
