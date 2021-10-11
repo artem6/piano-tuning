@@ -21,7 +21,7 @@ import {
   generateTunedUsingTotalEntropy,
 } from './utils/entropy';
 import { generateGradient } from './utils/colorGradient';
-import { playNote } from './utils/playNote';
+import { playMp3, playNote } from './utils/playNote';
 import { usePolling } from './utils/usePolling';
 import { storageService } from './utils/storageService';
 import { deepCopy } from './utils/deepCopy';
@@ -48,7 +48,7 @@ const colorGradient = generateGradient('00FF00', 'FF0000', 100);
 const defaultSettings = {
   mode: 'recording' as 'tuning' | 'recording',
   noteSounds: {
-    harmonics: 'tuned' as 'recorded' | 'tuned',
+    harmonics: 'tuned' as 'recorded' | 'tuned' | 'generated' | 'piano',
     notes: [0] as number[],
   },
   tuning: {
@@ -71,20 +71,41 @@ function App() {
   const pianoKeyRef = useRef(0);
   const [pianoKey, _setPianoKey] = useState(0); // currently focused key
   const setPianoKey = (val: number) => {
-    let harmonics = settingsRef.current.noteSounds.harmonics === 'recorded' ? recordedHarmonics : tunedHarmonics;
-    harmonics = { ...harmonics } || {};
-    [0, 4, 7, 12, 24].forEach(i => {
-      const note = val + i;
-      if (!harmonics[note] && KEYS[note]) {
-        harmonics[note] = { harmonics: generateHarmonics(KEYS[note].hz, Math.ceil(88 - note) / 10) } as any;
+    const setting = settingsRef.current.noteSounds.harmonics;
+    if (!audioRef.current) {
+      if (setting === 'piano') {
+        const notes = settingsRef.current.noteSounds.notes || [];
+        if (notes.indexOf(0) !== -1) playMp3(val, 0);
+        if (notes.indexOf(4) !== -1 && val + 4 < 88) playMp3(val + 4, 4); // third
+        if (notes.indexOf(7) !== -1 && val + 7 < 88) playMp3(val + 7, 7); // fifth
+        if (notes.indexOf(12) !== -1 && val + 12 < 88) playMp3(val + 12, 12); // octave
+        if (notes.indexOf(24) !== -1 && val + 24 < 88) playMp3(val + 24, 24); // double  octave
+      } else {
+        let harmonics =
+          setting === 'recorded'
+            ? recordedHarmonics
+            : setting === 'tuned'
+            ? tunedHarmonics
+            : setting === 'generated'
+            ? {}
+            : setting === 'piano'
+            ? {}
+            : {};
+        harmonics = { ...harmonics } || {};
+        [0, 4, 7, 12, 24].forEach(i => {
+          const note = val + i;
+          if (!harmonics[note] && KEYS[note]) {
+            harmonics[note] = { harmonics: generateHarmonics(KEYS[note].hz, Math.ceil(88 - note) / 10) } as any;
+          }
+        });
+        const notes = settingsRef.current.noteSounds.notes || [];
+        if (notes.indexOf(0) !== -1) playNote(harmonics?.[val]?.harmonics);
+        if (notes.indexOf(4) !== -1 && val + 4 < 88) playNote(harmonics?.[val + 4]?.harmonics); // third
+        if (notes.indexOf(7) !== -1 && val + 7 < 88) playNote(harmonics?.[val + 7]?.harmonics); // fifth
+        if (notes.indexOf(12) !== -1 && val + 12 < 88) playNote(harmonics?.[val + 12]?.harmonics); // octave
+        if (notes.indexOf(24) !== -1 && val + 24 < 88) playNote(harmonics?.[val + 24]?.harmonics); // double  octave
       }
-    });
-    const notes = settingsRef.current.noteSounds.notes || [];
-    if (notes.indexOf(0) !== -1) playNote(harmonics?.[val]?.harmonics);
-    if (notes.indexOf(4) !== -1 && val + 4 < 88) playNote(harmonics?.[val + 4]?.harmonics); // third
-    if (notes.indexOf(7) !== -1 && val + 7 < 88) playNote(harmonics?.[val + 7]?.harmonics); // fifth
-    if (notes.indexOf(12) !== -1 && val + 12 < 88) playNote(harmonics?.[val + 12]?.harmonics); // octave
-    if (notes.indexOf(24) !== -1 && val + 24 < 88) playNote(harmonics?.[val + 24]?.harmonics); // double  octave
+    }
     _setPianoKey(val);
     pianoKeyRef.current = val;
   };
@@ -801,6 +822,8 @@ function App() {
         >
           <option value='recorded'>Recorded Notes</option>
           <option value='tuned'>Tuned Notes</option>
+          <option value='generated'>Generated Notes</option>
+          <option value='piano'>Sample Piano Sound</option>
         </select>
       </div>
       <div>

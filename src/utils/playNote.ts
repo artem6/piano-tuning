@@ -1,4 +1,5 @@
 import { Peak } from './findPeaks';
+import { KEY_MP3 } from './keyMp3';
 
 export const playNote = (peaks: (Peak | null)[], duration = 6) => {
   const context = new AudioContext();
@@ -22,10 +23,18 @@ export const playNote = (peaks: (Peak | null)[], duration = 6) => {
     g.gain.exponentialRampToValueAtTime(zeroGain, context.currentTime + duration);
 
     o.connect(g);
-    o.type = 'sine';
+    o.type = 'triangle';
     g.connect(context.destination);
     o.start(0);
     o.stop(duration);
   });
   setTimeout(() => context.close(), duration * 333);
+};
+
+const mp3Channels: { [channel: number]: HTMLAudioElement } = {};
+
+export const playMp3 = (key: number, idx: number) => {
+  mp3Channels[idx] = mp3Channels[idx] || document.createElement('audio');
+  mp3Channels[idx].src = '/piano-tuning/mp3/' + KEY_MP3[key];
+  mp3Channels[idx].play();
 };
